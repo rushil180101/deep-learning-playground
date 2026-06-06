@@ -133,7 +133,8 @@ class NeuralNet:
 
             # Compute loss
             eps = 1e-15
-            a = np.clip(a, eps, 1 - eps)
+            a_raw = a
+            a = np.clip(a_raw, eps, 1 - eps)
             loss = -(y_train * np.log(a) + (1 - y_train) * np.log(1 - a))
             cost = (1 / m) * np.sum(loss)
 
@@ -141,7 +142,7 @@ class NeuralNet:
                 print(f"iteration = {it}, cost = {cost}")
 
             # Backprop
-            dz_next = a - y_train
+            dz_next = a_raw - y_train
             for layer in reversed(self.layers):
                 dz = layer.backprop(dz_next=dz_next)
                 dz_next = dz
