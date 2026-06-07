@@ -10,11 +10,11 @@ from typing import List, Literal, Optional, Tuple
 
 def load_dataset() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
-    train_dataset = h5py.File("datasets1/train_catvnoncat.h5", "r")
+    train_dataset = h5py.File("cat_vs_noncat_image_dataset/train_catvnoncat.h5", "r")
     train_set_x_orig = np.array(train_dataset["train_set_x"][:])
     train_set_y_orig = np.array(train_dataset["train_set_y"][:])
 
-    test_dataset = h5py.File("datasets1/test_catvnoncat.h5", "r")
+    test_dataset = h5py.File("cat_vs_noncat_image_dataset/test_catvnoncat.h5", "r")
     test_set_x_orig = np.array(test_dataset["test_set_x"][:])
     test_set_y_orig = np.array(test_dataset["test_set_y"][:])
 
