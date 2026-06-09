@@ -3,9 +3,11 @@ This module implements a small neural network with grad check on the
 cat vs non-cat training set, to predict/flag cat vs non-cat images.
 """
 
+import copy
+import random
 import numpy as np
 import h5py
-from typing import List, Literal, Optional, Tuple
+from typing import Any, List, Literal, Optional, Tuple
 
 
 def load_dataset() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -141,8 +143,20 @@ class NeuralNet:
         for layer in self.layers:
             layer.update_weights()
 
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        a_prev = x
+        for layer in self.layers:
+            a = layer.inference_step(a_prev=a_prev)
+            a_prev = a
+        return a
+
     def fit(
-        self, x_train: np.ndarray, y_train: np.ndarray, iterations: int = 100
+        self,
+        x_train: np.ndarray,
+        y_train: np.ndarray,
+        iterations: int = 100,
+        should_check_gradients: bool = False,
+        gradient_checker: Optional[Any] = None,
     ) -> None:
         m = x_train.shape[1]
 
@@ -157,91 +171,60 @@ class NeuralNet:
             # Backprop
             self.backward(y_hat=y_hat, y=y_train)
 
+            if it != 0 and it % 100 == 0:
+                print(f"iteration = {it}, cost = {cost}")
+                if should_check_gradients:
+                    if not gradient_checker:
+                        raise Exception(
+                            "gradient checking is enabled but did not receive gradient checker object"
+                        )
+
+                    gradient_checker.check(neural_net=self)
+
             # Update weights (gradient descent)
             self.update_nn_weights()
 
-            if it != 0 and it % 100 == 0:
-                print(f"iteration = {it}, cost = {cost}")
-
-    def predict(self, x_test: np.ndarray, y_test: np.ndarray) -> float:
-        y_hat = self.forward(x=x_test)
+    def get_accuracy(self, x_test: np.ndarray, y_test: np.ndarray) -> float:
+        y_hat = self.predict(x=x_test)
         y_hat = (y_hat >= 0.5).astype(int)
         result = (y_hat == y_test).astype(int)
         accuracy = np.sum(result) / result.shape[1]
         return accuracy
 
 
-def gradient_check(
-    x: np.ndarray, y: np.ndarray, neural_net: NeuralNet, epsilon: float = 1e-7
-) -> None:
+class GradientChecker:
 
-    all_grads_actual = []
-    all_grads_approx = []
+    def __init__(self, x: np.ndarray, y: np.ndarray, epsilon: float = 1e-7) -> None:
+        self.x = x
+        self.y = y
+        self.epsilon = epsilon
+        self.m = x.shape[1]
 
-    m = x.shape[1]
-    for l in range(len(neural_net.layers)):
-        w = neural_net.layers[l].w
-        b = neural_net.layers[l].b
+    def check(self, neural_net: NeuralNet) -> None:
 
-        for i in range(w.shape[0]):
-            for j in range(w.shape[1]):
-                orig = w[i, j]
+        # We only check for gradients on `w` weights,
+        # but same thing can also be check for `b` biases
 
-                # Increment
-                neural_net.layers[l].w[i, j] += epsilon
-                y_hat_incr = neural_net.forward(x=x)
-                cost_incr = neural_net.compute_cost(m=m, y_hat=y_hat_incr, y=y)
-                # Reset value
-                neural_net.layers[l].w[i, j] = orig
+        l = random.randint(0, len(neural_net.layers) - 1)
+        r = random.randint(0, neural_net.layers[l].w.shape[0] - 1)
+        c = random.randint(0, neural_net.layers[l].w.shape[1] - 1)
 
-                # Decrement
-                neural_net.layers[l].w[i, j] -= epsilon
-                y_hat_decr = neural_net.forward(x=x)
-                cost_decr = neural_net.compute_cost(m=m, y_hat=y_hat_decr, y=y)
-                # Reset value
-                neural_net.layers[l].w[i, j] = orig
+        nn_incr = copy.deepcopy(neural_net)
+        nn_incr.layers[l].w[r, c] += self.epsilon
+        y_hat_incr = nn_incr.predict(x=self.x)
+        cost_incr = nn_incr.compute_cost(m=self.m, y_hat=y_hat_incr, y=self.y)
 
-                # Approx grad
-                grad_approx = (cost_incr - cost_decr) / (2 * epsilon)
-                grad_actual = neural_net.layers[l].dw[i, j]
-                all_grads_approx.append(grad_approx)
-                all_grads_actual.append(grad_actual)
+        nn_decr = copy.deepcopy(neural_net)
+        nn_decr.layers[l].w[r, c] -= self.epsilon
+        y_hat_decr = nn_decr.predict(x=self.x)
+        cost_decr = nn_decr.compute_cost(m=self.m, y_hat=y_hat_decr, y=self.y)
 
-        for i in range(b.shape[0]):
-            for j in range(b.shape[1]):
-                orig = b[i, j]
+        grad_approx = (cost_incr - cost_decr) / (2 * self.epsilon)
+        grad_actual = neural_net.layers[l].dw[r, c]
 
-                # Increment
-                neural_net.layers[l].b[i, j] += epsilon
-                y_hat_incr = neural_net.forward(x=x)
-                cost_incr = neural_net.compute_cost(m=m, y_hat=y_hat_incr, y=y)
-                # Reset value
-                neural_net.layers[l].b[i, j] = orig
-
-                # Decrement
-                neural_net.layers[l].b[i, j] -= epsilon
-                y_hat_decr = neural_net.forward(x=x)
-                cost_decr = neural_net.compute_cost(m=m, y_hat=y_hat_decr, y=y)
-                # Reset value
-                neural_net.layers[l].b[i, j] = orig
-
-                # Approx grad
-                grad_approx = (cost_incr - cost_decr) / (2 * epsilon)
-                grad_actual = neural_net.layers[l].db[i, j]
-                all_grads_approx.append(grad_approx)
-                all_grads_actual.append(grad_actual)
-
-    all_grads_actual = np.array(all_grads_actual, dtype=np.float64)
-    all_grads_approx = np.array(all_grads_approx, dtype=np.float64)
-
-    numerator = np.linalg.norm(all_grads_actual - all_grads_approx)
-    denominator = np.linalg.norm(all_grads_actual) + np.linalg.norm(all_grads_approx)
-    diff = numerator / denominator
-    print(f"all_grads_actual shape = {all_grads_actual.shape}")
-    print(f"all_grads_approx shape = {all_grads_approx.shape}")
-    print(f"diff = {diff}")
-    assert diff <= 1e-5
-    print("gradient check successful")
+        diff = abs(grad_approx - grad_actual)
+        print(f"gradient check diff = {diff}")
+        assert diff <= 1e-7
 
 
 def main() -> None:
@@ -254,6 +237,9 @@ def main() -> None:
     x_train = x_train / 255.0
     x_test = x_test / 255.0
     m = x_train.shape[1]
+
+    # Gradient checker
+    gradient_checker = GradientChecker(x=x_train, y=y_train)
 
     # Create layers
     l1 = Layer(input_units=x_train.shape[0], output_units=16, training_set_size=m)
@@ -270,14 +256,17 @@ def main() -> None:
     neural_net = NeuralNet(layers=[l1, l2, l3, l4])
 
     # Train
-    neural_net.fit(x_train=x_train, y_train=y_train, iterations=1000)
+    neural_net.fit(
+        x_train=x_train,
+        y_train=y_train,
+        iterations=1000,
+        should_check_gradients=True,
+        gradient_checker=gradient_checker,
+    )
 
     # Test
-    accuracy = neural_net.predict(x_test=x_test, y_test=y_test)
+    accuracy = neural_net.get_accuracy(x_test=x_test, y_test=y_test)
     print(f"accuracy = {accuracy}")
-
-    # Gradient checking
-    gradient_check(x=x_train, y=y_train, neural_net=neural_net)
 
 
 if __name__ == "__main__":
