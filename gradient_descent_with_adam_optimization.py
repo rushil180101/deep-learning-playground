@@ -11,7 +11,6 @@ instead of the gradient descent steps getting too large in incorrect directions.
 
 import numpy as np
 import sklearn.datasets
-import numpy as np
 from typing import List, Literal, Optional, Tuple
 
 
