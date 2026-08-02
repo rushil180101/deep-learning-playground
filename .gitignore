@@ -1,5 +1,13 @@
 .env
 
-.venv/*
+.venv/
 
-__pycache__/*
+__pycache__/
+
+*/__pycache__/
+
+notes.txt
+
+tracker.txt
+
+*.log
