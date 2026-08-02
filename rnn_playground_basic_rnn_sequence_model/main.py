@@ -1,5 +1,5 @@
 """
-Within rnn_playground_1 directory, run:
+Within rnn_playground_basic_rnn_sequence_model directory, run:
 python main.py
 """
 
