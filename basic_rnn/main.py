@@ -6,7 +6,7 @@ from logging_utils import logger
 from vocabulary_lib.vocabulary import EnglishVocabularyManager
 from rnn_cell import RnnCell
 from sequence_model import SequenceModel
-from constants import HIDDEN_UNITS
+from constants import EOS_TOKEN, HIDDEN_UNITS
 
 
 def main() -> None:
@@ -25,7 +25,7 @@ def main() -> None:
     # Read and preprocess corpus
     with open("corpus/file.txt") as corpus:
         sentences = corpus.readlines()
-    sentences = [s.strip() for s in sentences]
+    sentences = [s.strip() + " " + EOS_TOKEN for s in sentences]
 
     # Train sequence model
     sequence_model.fit(sentences=sentences)
@@ -35,6 +35,8 @@ def main() -> None:
     sampled_sentences = sequence_model.sample()
     for s in sampled_sentences:
         logger.info(f"Sample = {s}")
+
+    print("Done")
 
 
 if __name__ == "__main__":
