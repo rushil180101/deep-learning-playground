@@ -19,7 +19,7 @@ class RnnCell:
         self.init_gradients()
 
     def init_weights(self) -> None:
-        c = np.sqrt(1 / self.io_units)
+        c = np.sqrt(1 / (self.hidden_units + self.io_units))
         # For intermediate activation
         w_aa = np.random.randn(self.hidden_units, self.hidden_units) * c
         w_ax = np.random.randn(self.hidden_units, self.io_units) * c
