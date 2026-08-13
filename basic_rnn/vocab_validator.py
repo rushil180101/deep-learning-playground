@@ -1,5 +1,4 @@
 """
-Within rnn_playground_basic_rnn_sequence_model directory, run:
 python vocab_validator.py
 """
 
